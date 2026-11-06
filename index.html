@@ -1,0 +1,1295 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CUET Live Bus Tracker</title>
+<link rel="icon" href="data:,">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+
+<style>
+:root {
+  --paper:#FAFAF7;
+  --ink:#14201F;
+  --muted:#5B6967;
+  --line:#D9DDD8;
+  --green:#0F3D3E;
+  --yellow:#F2B705;
+  --red:#C8402B;
+  --ok:#1E7A4F;
+}
+
+* {
+  box-sizing:border-box;
+  margin:0;
+}
+
+html,body {
+  height:100%;
+}
+
+body {
+  font:16px/1.45 Barlow,system-ui,sans-serif;
+  color:var(--ink);
+  background:var(--paper);
+  display:flex;
+}
+
+aside {
+  width:360px;
+  flex:none;
+  padding:24px 18px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  border-right:1px solid var(--line);
+  overflow:auto;
+}
+
+h1 {
+  font:700 34px/1 "Barlow Condensed",sans-serif;
+  color:var(--green);
+}
+
+.sub {
+  color:var(--muted);
+  font-size:14px;
+  margin-top:6px;
+}
+
+details {
+  border:1.5px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+}
+
+details[hidden] {
+  display:none !important;
+}
+
+summary {
+  padding:9px 12px;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.box {
+  padding:0 12px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+input {
+  width:100%;
+  padding:9px 10px;
+  border:1.5px solid var(--line);
+  border-radius:6px;
+  font:inherit;
+}
+
+.row {
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+button {
+  font:500 14px Barlow,sans-serif;
+  padding:9px 12px;
+  border-radius:6px;
+  border:1.5px solid var(--green);
+  background:var(--green);
+  color:#fff;
+  cursor:pointer;
+}
+
+button.alt {
+  background:transparent;
+  color:var(--green);
+}
+
+button.on {
+  background:var(--yellow);
+  color:var(--ink);
+  border-color:var(--yellow);
+}
+
+button:disabled {
+  opacity:.6;
+  cursor:not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline:3px solid var(--yellow);
+  outline-offset:2px;
+}
+
+.note {
+  font-size:13px;
+  color:var(--muted);
+}
+
+#alert {
+  display:none;
+  padding:10px 12px;
+  border-radius:8px;
+  background:var(--yellow);
+  font-weight:500;
+}
+
+#list {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.bus-row {
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:2px 12px;
+  align-items:center;
+  text-align:left;
+  width:100%;
+  padding:10px 12px;
+  border:1.5px solid var(--line);
+  border-radius:8px;
+  background:#fff;
+  color:var(--ink);
+  font:inherit;
+}
+
+.bus-row.sel {
+  border-color:var(--green);
+  background:#EEF4F2;
+}
+
+.badge {
+  grid-row:span 2;
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  background:var(--yellow);
+  border:3px solid var(--green);
+  display:grid;
+  place-items:center;
+  font:700 15px "Barlow Condensed",sans-serif;
+  color:var(--green);
+}
+
+.name {
+  font-weight:500;
+}
+
+.meta {
+  font-size:13px;
+  color:var(--muted);
+  font-variant-numeric:tabular-nums;
+}
+
+.state {
+  font:600 15px "Barlow Condensed",sans-serif;
+  grid-row:span 2;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.state i {
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  background:var(--ok);
+}
+
+.off .state i {
+  background:var(--red);
+}
+
+.off .badge {
+  background:#ddd;
+}
+
+#map {
+  flex:1;
+  min-height:100%;
+}
+
+#map.pick {
+  cursor:crosshair;
+}
+
+.bus,.stop {
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  font:700 15px "Barlow Condensed",sans-serif;
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+}
+
+.bus {
+  background:var(--yellow);
+  border:3px solid var(--green);
+  color:var(--green);
+}
+
+.bus.off {
+  background:#ccc;
+  border-color:#777;
+  color:#555;
+}
+
+.bus.sel {
+  transform:scale(1.25);
+}
+
+.stop {
+  background:var(--red);
+  border:3px solid #fff;
+  color:#fff;
+  border-radius:6px;
+}
+
+@media(max-width:760px) {
+  body {
+    flex-direction:column-reverse;
+  }
+
+  aside {
+    width:100%;
+    border-right:0;
+    border-top:1px solid var(--line);
+    padding:14px;
+    max-height:55vh;
+  }
+
+  #map {
+    min-height:45vh;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<aside>
+
+  <div>
+    <h1>Where is the bus?</h1>
+    <p class="sub" id="count">Connecting...</p>
+  </div>
+
+  <div id="alert" role="status" aria-live="polite"></div>
+
+  <!-- ADMIN LOGIN -->
+  <details id="adminLogin">
+    <summary>Admin Login</summary>
+
+    <div class="box">
+
+      <input
+        type="email"
+        id="adminEmail"
+        placeholder="Admin email"
+        autocomplete="username"
+      >
+
+      <input
+        type="password"
+        id="adminPassword"
+        placeholder="Password"
+        autocomplete="current-password"
+      >
+
+      <div class="row">
+        <button id="loginBtn">Login</button>
+        <button id="logoutBtn" class="alt" hidden>Logout</button>
+      </div>
+
+      <p class="note" id="adminStatus">
+        Login required for administrator settings.
+      </p>
+
+    </div>
+  </details>
+
+  <!-- ADMIN CONNECTION SETTINGS -->
+  <details id="conn" hidden>
+    <summary>Connection Settings</summary>
+
+    <div class="box">
+
+      <input
+        type="url"
+        id="url"
+        placeholder="Firebase Database URL"
+        aria-label="Firebase database URL"
+      >
+
+      <div class="row">
+        <button id="connect">Connect</button>
+        <button id="demoBtn" class="alt">Use demo</button>
+      </div>
+
+      <p class="note" id="modeNote"></p>
+
+    </div>
+  </details>
+
+  <!-- MY STOP -->
+  <details id="stopBox" open>
+    <summary>My stop and arrival times</summary>
+
+    <div class="box">
+
+      <div class="row">
+        <button id="pick" class="alt">Pick on map</button>
+        <button id="mine" class="alt">Use my location</button>
+        <button id="noStop" class="alt">Clear</button>
+      </div>
+
+      <p class="note" id="stopNote">
+        Set a stop to see each bus's distance and estimated arrival.
+      </p>
+
+    </div>
+  </details>
+
+  <div id="list"></div>
+
+  <div class="row">
+    <button id="all">Show all buses</button>
+    <button id="clear" class="alt">Clear trail</button>
+  </div>
+
+  <p class="note">
+    Arrival times use straight-line distance and the bus's current speed,
+    so treat them as estimates.
+  </p>
+
+</aside>
+
+<div
+  id="map"
+  role="application"
+  aria-label="Live bus locations map">
+</div>
+
+<!-- LIBRARIES -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
+<script>
+
+// ======================================
+// 1. BASIC CONFIGURATION
+// ======================================
+
+const CONFIG = {
+  dbUrl: "https://cuet-bus-tracker-cb7f2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  pollMs: 3000,
+  staleSec: 30,
+  arriveKm: 0.5,
+  start: [22.4633, 91.9714]
+};
+
+// DOM helper - MUST BE DECLARED BEFORE ADMIN CODE
+const $ = id => document.getElementById(id);
+
+// ======================================
+// 2. LOCAL STORAGE
+// ======================================
+
+const store = {
+  get(k) {
+    try {
+      return localStorage.getItem(k);
+    } catch(e) {
+      return null;
+    }
+  },
+
+  set(k,v) {
+    try {
+      localStorage.setItem(k,v);
+    } catch(e) {}
+  },
+
+  del(k) {
+    try {
+      localStorage.removeItem(k);
+    } catch(e) {}
+  }
+};
+
+// ======================================
+// 3. FIREBASE CONFIGURATION
+// ======================================
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBXQxDvWIarPOST7h1TW1g1rdcG5knuduM",
+  authDomain: "cuet-bus-tracker-cb7f2.firebaseapp.com",
+  databaseURL: "https://cuet-bus-tracker-cb7f2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "cuet-bus-tracker-cb7f2"
+};
+
+const ADMIN_UID = "MjS6IOnX9sgMf1nPc6oYr9UPnpD2";
+
+firebase.initializeApp(firebaseConfig);
+
+const auth = firebase.auth();
+
+// ======================================
+// 4. ADMIN LOGIN SYSTEM
+// ======================================
+
+function setAdminUI(isAdmin) {
+
+  $("conn").hidden = !isAdmin;
+
+  $("loginBtn").hidden = isAdmin;
+  $("logoutBtn").hidden = !isAdmin;
+
+  $("adminEmail").hidden = isAdmin;
+  $("adminPassword").hidden = isAdmin;
+
+  $("adminStatus").textContent = isAdmin
+    ? "Administrator logged in."
+    : "Login required for administrator settings.";
+
+  if (isAdmin) {
+    $("conn").open = true;
+  } else {
+    $("conn").open = false;
+  }
+}
+
+// LOGIN
+$("loginBtn").onclick = async () => {
+
+  const email = $("adminEmail").value.trim();
+  const password = $("adminPassword").value;
+
+  if (!email || !password) {
+    $("adminStatus").textContent =
+      "Please enter your email and password.";
+    return;
+  }
+
+  $("loginBtn").disabled = true;
+  $("adminStatus").textContent = "Signing in...";
+
+  try {
+
+    const result = await auth.signInWithEmailAndPassword(
+      email,
+      password
+    );
+
+    if (result.user.uid !== ADMIN_UID) {
+
+      await auth.signOut();
+
+      $("adminStatus").textContent =
+        "Access denied. Not an authorized administrator.";
+
+    }
+
+  } catch(error) {
+
+    console.error("Login error:", error);
+
+    $("adminStatus").textContent =
+      "Login failed: " + error.message;
+
+  } finally {
+
+    $("loginBtn").disabled = false;
+
+  }
+};
+
+// LOGOUT
+$("logoutBtn").onclick = async () => {
+
+  try {
+    await auth.signOut();
+  } catch(error) {
+    console.error("Logout error:", error);
+  }
+
+};
+
+// CHECK AUTHENTICATION
+auth.onAuthStateChanged(user => {
+
+  const isAdmin = !!user && user.uid === ADMIN_UID;
+
+  setAdminUI(isAdmin);
+
+});
+
+// ======================================
+// 5. HELPER FUNCTIONS
+// ======================================
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({
+  "&":"&amp;",
+  "<":"&lt;",
+  ">":"&gt;",
+  '"':"&quot;",
+  "'":"&#39;"
+}[c]));
+
+const km = (a,b) => {
+
+  const r = Math.PI / 180;
+
+  const dLa = (b[0]-a[0])*r;
+  const dLo = (b[1]-a[1])*r;
+
+  const x =
+    Math.sin(dLa/2)**2 +
+    Math.cos(a[0]*r) *
+    Math.cos(b[0]*r) *
+    Math.sin(dLo/2)**2;
+
+  return 12742 * Math.asin(Math.sqrt(x));
+};
+
+const fmtD = d =>
+  d < 1
+    ? Math.round(d*1000) + " m"
+    : d.toFixed(1) + " km";
+
+// ======================================
+// 6. MAP INITIALIZATION
+// ======================================
+
+const map = L.map("map").setView(CONFIG.start,14);
+
+L.tileLayer(
+  "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom:19,
+    referrerPolicy:"strict-origin-when-cross-origin",
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }
+).addTo(map);
+
+const trail = L.polyline([], {
+  color:"#0F3D3E",
+  weight:4,
+  opacity:.7
+}).addTo(map);
+
+// ======================================
+// 7. BUS VARIABLES
+// ======================================
+
+const buses = {};
+
+let selected = null;
+let fitted = false;
+let stopPos = null;
+let stopMarker = null;
+let picking = false;
+let timers = [];
+let demo = false;
+
+// Firebase Database URL
+let dbUrl = (
+  store.get("dbUrl") ||
+  CONFIG.dbUrl
+).replace(/\/+$/,"");
+
+// ======================================
+// 8. BUS MARKERS
+// ======================================
+
+const mkIcon = (lab,off,sel) => {
+
+  return L.divIcon({
+    className:"",
+    iconSize:[34,34],
+    iconAnchor:[17,17],
+
+    html:
+      `<div class="bus${off?" off":""}${sel?" sel":""}">` +
+      `${esc(lab)}</div>`
+  });
+
+};
+
+const label = (id,b) =>
+  (b.name || id)
+    .replace(/[^0-9A-Za-z]/g,"")
+    .slice(-2)
+    .toUpperCase() || "B";
+
+const isOff = b =>
+  !b.lastChange ||
+  (Date.now()-b.lastChange)/1000 > CONFIG.staleSec;
+
+// ======================================
+// 9. UPDATE BUS POSITION
+// ======================================
+
+function update(id,d) {
+
+  const lat = Number(d.lat);
+  const lng = Number(d.lng);
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 || lat > 90 ||
+    lng < -180 || lng > 180
+  ) {
+    return;
+  }
+
+  const b = buses[id] || (
+    buses[id] = {
+      name:id,
+      lastTs:0,
+      lastChange:0
+    }
+  );
+
+  const ts = Number(d.ts) || Date.now();
+
+  if (ts === b.lastTs) return;
+
+  if (d.name) {
+    b.name = String(d.name);
+  }
+
+  b.lastTs = ts;
+  b.lastChange = Date.now();
+
+  b.pos = [lat,lng];
+  b.speed = Number(d.speed) || 0;
+
+  if (!b.marker) {
+
+    b.marker = L.marker(b.pos,{
+      title:b.name
+    }).addTo(map);
+
+    b.marker.on("click", () => select(id));
+
+  }
+
+  b.marker.setLatLng(b.pos);
+
+  if (id === selected) {
+    trail.addLatLng(b.pos);
+    map.panTo(b.pos);
+  }
+
+}
+
+// ======================================
+// 10. SELECT BUS
+// ======================================
+
+function select(id) {
+
+  selected = id;
+  trail.setLatLngs([]);
+
+  const b = buses[id];
+
+  if (b && b.pos) {
+
+    trail.addLatLng(b.pos);
+    map.setView(b.pos,16);
+
+  }
+
+  render();
+
+}
+
+// ======================================
+// 11. SHOW ALL BUSES
+// ======================================
+
+function showAll() {
+
+  selected = null;
+  trail.setLatLngs([]);
+
+  const pts = Object.values(buses)
+    .filter(b => b.pos)
+    .map(b => b.pos);
+
+  if (stopPos) {
+    pts.push(stopPos);
+  }
+
+  if (pts.length) {
+
+    map.fitBounds(pts,{
+      padding:[60,60],
+      maxZoom:16
+    });
+
+  }
+
+  render();
+
+}
+
+// ======================================
+// 12. RENDER BUS INFORMATION
+// ======================================
+
+function render() {
+
+  const ids = Object.keys(buses);
+  const info = {};
+
+  ids.forEach(id => {
+
+    const b = buses[id];
+
+    if (stopPos && b.pos) {
+
+      const d = km(b.pos,stopPos);
+
+      const sp = Math.max(
+        Number(b.speed) || 0,
+        15
+      );
+
+      info[id] = {
+        d,
+        eta:Math.max(1,Math.round(d/sp*60))
+      };
+
+    }
+
+  });
+
+  ids.sort((a,b) => {
+
+    if (stopPos && info[a] && info[b]) {
+      return info[a].d-info[b].d;
+    }
+
+    return a.localeCompare(b);
+
+  });
+
+  const live = ids.filter(i => !isOff(buses[i]));
+
+  $("count").textContent = ids.length
+    ? `${live.length} of ${ids.length} buses live`
+    : "Waiting for first signal";
+
+  const near = live.filter(
+    i => info[i] && info[i].d < CONFIG.arriveKm
+  );
+
+  $("alert").style.display =
+    near.length ? "block" : "none";
+
+  $("alert").textContent = near.length
+    ? near.map(i =>
+        `${buses[i].name} is arriving (${fmtD(info[i].d)} away)`
+      ).join(" · ")
+    : "";
+
+  $("list").innerHTML = ids.map(id => {
+
+    const b = buses[id];
+
+    const off = isOff(b);
+
+    const age = Math.round(
+      (Date.now()-b.lastChange)/1000
+    );
+
+    const ago = age < 60
+      ? age+" s ago"
+      : Math.round(age/60)+" min ago";
+
+    const spd = b.speed != null
+      ? Number(b.speed).toFixed(0)+" km/h"
+      : "";
+
+    const eta = info[id]
+      ? `${fmtD(info[id].d)} · ~${info[id].eta} min`
+      : "";
+
+    return `
+      <button class="bus-row${off?" off":""}${id===selected?" sel":""}"
+              data-id="${esc(id)}">
+
+        <span class="badge">${esc(label(id,b))}</span>
+
+        <span class="name">${esc(b.name)}</span>
+
+        <span class="state">
+          <i></i>${off?"Offline":"Live"}
+        </span>
+
+        <span class="meta">
+          ${[eta,spd,ago].filter(Boolean).join(" · ")}
+        </span>
+
+      </button>
+    `;
+
+  }).join("");
+
+  ids.forEach(id => {
+
+    const b = buses[id];
+
+    if (b.marker) {
+      b.marker.setIcon(
+        mkIcon(label(id,b),isOff(b),id===selected)
+      );
+    }
+
+  });
+
+}
+
+// ======================================
+// 13. MY STOP
+// ======================================
+
+function setStop(p) {
+
+  stopPos = p;
+
+  store.set("stop",JSON.stringify(p));
+
+  if (!stopMarker) {
+
+    stopMarker = L.marker(p,{
+      icon:L.divIcon({
+        className:"",
+        iconSize:[34,34],
+        iconAnchor:[17,17],
+        html:'<div class="stop">Me</div>'
+      }),
+      title:"My stop"
+    }).addTo(map);
+
+  }
+
+  stopMarker.setLatLng(p);
+
+  $("stopNote").textContent =
+    "Stop set. Buses are sorted by distance to it.";
+
+  render();
+
+}
+
+function clearStop() {
+
+  stopPos = null;
+
+  store.del("stop");
+
+  if (stopMarker) {
+    map.removeLayer(stopMarker);
+    stopMarker = null;
+  }
+
+  $("stopNote").textContent =
+    "Set a stop to see each bus's distance and estimated arrival.";
+
+  render();
+
+}
+
+function pickMode(on) {
+
+  picking = on;
+
+  $("pick").classList.toggle("on",on);
+  $("map").classList.toggle("pick",on);
+
+  if (on) {
+    $("stopNote").textContent =
+      "Click the map where your stop is.";
+  }
+
+}
+
+map.on("click",e => {
+
+  if (picking) {
+
+    setStop([
+      e.latlng.lat,
+      e.latlng.lng
+    ]);
+
+    pickMode(false);
+
+  }
+
+});
+
+$("pick").onclick = () =>
+  pickMode(!picking);
+
+$("noStop").onclick = clearStop;
+
+$("mine").onclick = () => {
+
+  if (!navigator.geolocation) {
+
+    $("stopNote").textContent =
+      "Location is not available in this browser.";
+
+    return;
+
+  }
+
+  $("stopNote").textContent =
+    "Finding your location...";
+
+  navigator.geolocation.getCurrentPosition(
+
+    p => {
+
+      setStop([
+        p.coords.latitude,
+        p.coords.longitude
+      ]);
+
+      map.setView(stopPos,15);
+
+    },
+
+    () => {
+
+      $("stopNote").textContent =
+        "Could not get your location. Allow location access, or pick on the map.";
+
+    }
+
+  );
+
+};
+
+// ======================================
+// 14. FIREBASE DATA READING
+// ======================================
+
+async function poll() {
+
+  try {
+
+    const response = await fetch(
+      dbUrl + "/buses.json",
+      {cache:"no-store"}
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Database request failed: HTTP " + response.status
+      );
+    }
+
+    const data = await response.json();
+
+    if (data && data.error) {
+      throw new Error(data.error);
+    }
+
+    if (data && typeof data === "object") {
+
+      Object.entries(data).forEach(([id,d]) => {
+
+        if (!d || typeof d !== "object") return;
+
+        update(id,{
+
+          name:d.name || id,
+
+          lat:d.lat,
+
+          lng:d.lng,
+
+          speed:d.speed,
+
+          ts:d.ts
+            ? Number(d.ts)*1000
+            : Date.now()
+
+        });
+
+      });
+
+    }
+
+    $("modeNote").textContent =
+      "Connected to Firebase. Reading live bus data.";
+
+    afterData();
+
+  } catch(e) {
+
+    console.error("Firebase error:",e);
+
+    $("modeNote").textContent =
+      "Database error: " + e.message;
+
+  }
+
+}
+
+// ======================================
+// 15. DEMO MODE
+// ======================================
+
+const route = [
+  [22.4633,91.9714],
+  [22.4660,91.9760],
+  [22.4700,91.9790],
+  [22.4745,91.9780],
+  [22.4770,91.9730],
+  [22.4740,91.9680],
+  [22.4690,91.9650],
+  [22.4650,91.9670]
+];
+
+let tick = 0;
+
+function demoStep() {
+
+  tick += 0.12;
+
+  ["Bus 1","Bus 2","Bus 3"].forEach((name,k) => {
+
+    if (k===2 && tick>15) return;
+
+    const pos =
+      (tick+k*2.7)%route.length;
+
+    const i = Math.floor(pos);
+    const f = pos-i;
+
+    const a = route[i];
+    const b = route[(i+1)%route.length];
+
+    update("bus"+(k+1),{
+
+      name,
+
+      lat:a[0]+(b[0]-a[0])*f,
+
+      lng:a[1]+(b[1]-a[1])*f,
+
+      speed:24+Math.random()*8,
+
+      ts:Date.now()
+
+    });
+
+  });
+
+  afterData();
+
+}
+
+// ======================================
+// 16. AFTER DATA UPDATE
+// ======================================
+
+function afterData() {
+
+  if (
+    !fitted &&
+    Object.values(buses).some(b => b.pos)
+  ) {
+
+    fitted = true;
+    showAll();
+
+  }
+
+  render();
+
+}
+
+// ======================================
+// 17. START CONNECTION
+// ======================================
+
+function start() {
+
+  timers.forEach(clearInterval);
+  timers = [];
+
+  Object.values(buses).forEach(b => {
+
+    if (b.marker) {
+      map.removeLayer(b.marker);
+    }
+
+  });
+
+  Object.keys(buses).forEach(k => delete buses[k]);
+
+  selected = null;
+  fitted = false;
+
+  trail.setLatLngs([]);
+
+  demo = !dbUrl;
+
+  $("url").value = dbUrl;
+
+  $("modeNote").textContent = demo
+    ? "Demo mode: simulated buses."
+    : "Connecting to Firebase...";
+
+  if (demo) {
+
+    demoStep();
+
+    timers.push(
+      setInterval(demoStep,1500)
+    );
+
+  } else {
+
+    poll();
+
+    timers.push(
+      setInterval(poll,CONFIG.pollMs)
+    );
+
+  }
+
+  timers.push(
+    setInterval(render,1000)
+  );
+
+  render();
+
+}
+
+// ======================================
+// 18. ADMIN CONNECTION BUTTONS
+// ======================================
+
+$("connect").onclick = () => {
+
+  let u = $("url").value.trim().replace(/\/+$/,"");
+
+  if (u && !/^https?:\/\//i.test(u)) {
+    u = "https://" + u;
+  }
+
+  if (!u) {
+    $("modeNote").textContent =
+      "Please enter a Firebase Database URL.";
+    return;
+  }
+
+  dbUrl = u;
+
+  store.set("dbUrl",u);
+
+  start();
+
+};
+
+$("demoBtn").onclick = () => {
+
+  dbUrl = "";
+
+  store.del("dbUrl");
+
+  start();
+
+};
+
+// ======================================
+// 19. BUS LIST AND MAP BUTTONS
+// ======================================
+
+$("list").addEventListener("click",e => {
+
+  const r = e.target.closest(".bus-row");
+
+  if (r) {
+    select(r.dataset.id);
+  }
+
+});
+
+$("all").onclick = showAll;
+
+$("clear").onclick = () =>
+  trail.setLatLngs([]);
+
+map.on("dragstart",() => {
+
+  if (selected) {
+
+    selected = null;
+    render();
+
+  }
+
+});
+
+// ======================================
+// 20. RESTORE PREVIOUS STOP
+// ======================================
+
+try {
+
+  const s = JSON.parse(store.get("stop"));
+
+  if (
+    Array.isArray(s) &&
+    s.length===2 &&
+    s.every(Number.isFinite)
+  ) {
+    setStop(s);
+  }
+
+} catch(e) {}
+
+// ======================================
+// 21. START WEBSITE
+// ======================================
+
+// Visitors automatically connect to the real Firebase database.
+// They do not need to login.
+
+start();
+
+</script>
+
+</body>
+</html>
